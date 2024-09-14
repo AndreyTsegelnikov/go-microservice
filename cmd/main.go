@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -20,5 +21,7 @@ func main() {
 
 	// Run implements a http.ListenAndServe() and takes in an optional Port number
 	// The default port is :8080
-	router.Run()
+	if err := router.Run(); err != nil {
+		log.Fatal(err)
+	}
 }
