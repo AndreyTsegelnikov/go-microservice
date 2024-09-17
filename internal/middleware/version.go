@@ -2,8 +2,8 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/AndreyTsegelnikov/go-microservice/internal/vars"
-	
+
+	"go-microservice/internal/vars"
 )
 
 func Version(version string) gin.HandlerFunc {

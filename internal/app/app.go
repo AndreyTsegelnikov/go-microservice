@@ -1,15 +1,17 @@
 package app
 
 import (
-	"github.com/gin-gonic/gin"
+	"context"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"context"
-	"log"
-	"github.com/AndreyTsegelnikov/go-microservice/internal/middleware"
-	"github.com/AndreyTsegelnikov/go-microservice/internal/handler"
+
+	"github.com/gin-gonic/gin"
+
+	"go-microservice/internal/handler"
+	"go-microservice/internal/middleware"
 )
 
 type server struct {
