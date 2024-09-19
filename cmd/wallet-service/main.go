@@ -1,26 +1,40 @@
 package main
 
 import (
-	"net/http"
+	"go-microservice/internal/app"
+	"go-microservice/internal/handler"
+
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"log"
 )
 
+var (
+	appname = "go-microservice"
+	version = "1.0.0"
+	build   = "20240915"
+	public  = "0.0.0.0:8080"
+	private = "0.0.0.0:8081"
+	debug   = true
+)
+
+func init() {
+	log.Println("Started:", time.Now())
+	log.Println("App version:", version)
+	log.Println("App build:", build)
+	log.Println("App name:", appname)
+	log.Println(`Private http at:`, `http://`+private)
+	log.Println(`Public http at:`, `http://`+public)
+}
+
 func main() {
-	// initiates a gin Engine with the default logger and recovery middleware
-	router := gin.Default()
-
-	// sets up a GET API in route /time that returns the current time
-	router.GET("/time", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"currentTime": time.Now().Format("15:04"),
-		})
-	})
-
-	// Run implements a http.ListenAndServe() and takes in an optional Port number
-	// The default port is :8080
-	if err := router.Run(); err != nil {
-		panic(err)
-	}
+	app, wait := app.NewApp(debug, appname, version, public, private)
+	api := app.PublicRouter().Group(appname + "/api/:ver")
+	api.GET("/time", handler.Time)
+	// старт http
+	app.ServePrivateHTTP()
+	// старт http
+	app.ServePublicHTTP()
+	// стоп канал
+	<-wait
 }
