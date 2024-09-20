@@ -29,7 +29,8 @@ func init() {
 
 func main() {
 	app, wait := app.NewApp(debug, appname, version, public, private)
-	api := app.PublicRouter().Group(appname + "/api/:ver")
+	// api := app.PublicRouter().Group(appname + "/api/:ver")
+	api := app.PublicRouter()
 	api.GET("/time", handler.Time)
 	// старт http
 	app.ServePrivateHTTP()
