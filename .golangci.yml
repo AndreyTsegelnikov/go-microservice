@@ -1,21 +1,23 @@
 linters-settings:
-  govet:
-    disable-all: true
-    enable:
-      - fieldalignment
+  forbidigo:
+    forbid:
+      - .*\.Fatal.*
+      - fmt\.Print.*
 
 linters:
-  enable-all: false
-  enable:
-    - govet
-    - errcheck
-    - staticcheck
-    - gocritic
-    - unused
-    - unconvert
-    - ineffassign
-    - prealloc
-    - goconst
-    - whitespace
-    - mnd
-  fast: false
+  enable-all: true
+
+  disable:
+    - depguard
+    - execinquery
+    - exhaustive
+    - exhaustruct
+    - gomnd
+    - ireturn
+    - varnamelen
+    - tagalign
+    - wastedassign
+
+run:
+  timeout: 10m
+  tests: false
