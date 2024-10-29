@@ -1,12 +1,14 @@
 package main
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
+	"go.uber.org/zap"
+
 	"go-microservice/internal/app"
-	"go-microservice/internal/handler"
-
-	"time"
-
-	"log"
+	"go-microservice/internal/config"
 )
 
 var (
@@ -15,26 +17,34 @@ var (
 	build   = "20240915"
 	public  = "0.0.0.0:8080"
 	private = "0.0.0.0:8081"
-	debug   = true
+	debug   = false
 )
 
 func init() {
-	log.Println("Started:", time.Now())
-	log.Println("App version:", version)
-	log.Println("App build:", build)
-	log.Println("App name:", appname)
-	log.Println(`Private http at:`, `http://`+private)
-	log.Println(`Public http at:`, `http://`+public)
+	Logger := zap.NewExample()
+	defer Logger.Sync()
+	Logger.Info("init",
+		zap.String("App version:", version),
+		zap.String("App build:", build),
+		zap.String("App name:", appname),
+		zap.String("Public http at:", "http://"+public),
+		zap.String("Private http at:", "http://"+private),
+	)
 }
 
 func main() {
-	app, wait := app.NewApp(debug, appname, version, public, private)
-	api := app.PublicRouter().Group(appname + "/api/:ver")
-	api.GET("/time", handler.Time)
-	// старт http
-	app.ServePrivateHTTP()
-	// старт http
-	app.ServePublicHTTP()
-	// стоп канал
-	<-wait
+	// metrics.RegisterMetrics()
+
+	cfg := config.NewAppConfig(version)
+	logger := logging.NewAppLogger(cfg)
+
+	a := app.NewApp(cfg, logger)
+
+	a.Run()
+
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+	<-shutdown
+
+	a.Stop()
 }

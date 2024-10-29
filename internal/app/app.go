@@ -1,131 +1,52 @@
 package app
 
 import (
-	"context"
-	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-
-	"github.com/gin-gonic/gin"
-
-	"go-microservice/internal/handler"
-	"go-microservice/internal/middleware"
+	"go-microservice/internal/config"
+	"time"
+	"go-microservice/internal/logger"
 )
 
-type server struct {
-	Router *gin.Engine
-	Server *http.Server
+type App struct {
+	cfg    *config.AppConfig
+	logger *logger.AppLogger
+	srv    *server.Server
 }
 
-type Application struct {
-	public  server
-	private server
-	onterm  func()
-	stop    chan struct{}
-	name    string
-	version string
-}
-
-// NewApp .
-func NewApp(debug bool, name, version string, public, private string) (*Application, chan struct{}) {
-	switch debug {
-	case true:
-		gin.SetMode(gin.DebugMode)
-	default:
-		gin.SetMode(gin.ReleaseMode)
+func New(cfg *config.AppConfig, logger *logging.AppLogger) *App {
+	promoProvider, err := httpcli.NewFastClient(cfg.MarketingHosts, cfg, logger, httpcli.DefaultFConfig("promo"), httpcli.DefaultCBConfig())
+	if err != nil {
+		logger.Fatal(err)
 	}
 
-	app := Application{
-		public:  server{Server: &http.Server{Addr: public}, Router: gin.New()},
-		private: server{Server: &http.Server{Addr: private}, Router: gin.New()},
-		name:    name,
-		version: version,
-		onterm:  nil,
-		stop:    make(chan struct{}),
+	promoRepositoryV1 := repository.NewPromoRepository[*v1.PromoResponse](cfg, logger, promoProvider)
+	promoRepositoryV2 := repository.NewPromoRepository[*v2.PromoResponse](cfg, logger, promoProvider)
+	promoService := service.NewPromoService(promoRepositoryV1, promoRepositoryV2)
+
+	srv := server.NewServer(cfg, logger, promoRepositoryV1, promoRepositoryV2, promoService)
+
+	return &App{
+		cfg:    cfg,
+		logger: logger,
+		srv:    srv,
 	}
-
-	app.public.Router.Use(gin.Recovery())
-	app.private.Router.Use(gin.Recovery())
-
-	if debug {
-		app.public.Router.Use(gin.Logger())
-		app.private.Router.Use(gin.Logger())
-	}
-
-	go func() {
-		signals := make(chan os.Signal, 1)
-		signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-		<-signals
-
-		if debug {
-			log.Println("app terminating...")
-		}
-
-		err := app.public.Server.Shutdown(context.Background())
-		if err != nil {
-			log.Printf("failed to shutdown public server, err: %s\n", err.Error())
-		}
-
-		err = app.private.Server.Shutdown(context.Background())
-		if err != nil {
-			log.Printf("failed to shutdown private server, err: %s\n", err.Error())
-		}
-
-		if app.onterm != nil {
-			app.onterm()
-		}
-
-		err = app.public.Server.Shutdown(context.TODO())
-		if err != nil {
-			log.Printf("failed to shutdown public server, err: %s\n", err.Error())
-		}
-
-		if debug {
-			log.Println("app terminated")
-		}
-
-		app.stop <- struct{}{}
-	}()
-
-	app.public.Router.Use(middleware.Version(version))
-	app.private.Router.Use(middleware.Version(version))
-
-	app.private.Router.GET("/liveness", handler.Dummy)
-	app.private.Router.GET("/readiness", handler.Readiness)
-
-	app.public.Server.Handler = app.public.Router
-	app.private.Server.Handler = app.private.Router
-
-	return &app, app.stop
 }
 
-// ServePrivateHTTP starts the app
-func (app *Application) ServePrivateHTTP() {
-	go func() {
-		log.Println(app.private.Server.ListenAndServe())
-	}()
+func (app *App) Run() {
+	app.logger.Info("Starting app: " + app.cfg.AppName)
+	app.logger.Info("App version: " + app.cfg.AppVersion)
+	app.logger.Info("App identity: " + app.cfg.AppId)
+
+	app.srv.Run()
+
+	app.logger.Info("App started: " + time.Now().String())
+
+	metrics.ReplicCountByVersion.WithLabelValues(app.cfg.AppVersion).Inc()
 }
 
-// ServePublicHTTP starts the app
-func (app *Application) ServePublicHTTP() {
-	go func() {
-		log.Println(app.public.Server.ListenAndServe())
-	}()
-}
+func (app *App) Stop() {
+	app.logger.Info("Stopping " + app.cfg.AppName + "...")
 
-// PublicRouter .
-func (app *Application) PublicRouter() *gin.Engine {
-	return app.public.Router
-}
+	app.srv.Stop()
 
-// PrivateRouter .
-func (app *Application) PrivateRouter() *gin.Engine {
-	return app.private.Router
-}
-
-// OnTerm .
-func (app *Application) OnTerm(onterm func()) {
-	app.onterm = onterm
+	app.logger.Info("App stopped: " + time.Now().String())
 }

@@ -1,0 +1,42 @@
+# Environment (like as cluster name)
+environment: common
+
+replicaCount: 1
+
+env:
+  GOMAXPROCS: 1
+  PUBLIC_ADDR: 0.0.0.0:8080
+  PRIVATE_ADDR: 0.0.0.0:8081
+  MODE: RELEASE
+  DC: BDM
+
+vault:
+  enabled: true
+  role: {{ .Helm.Release.Namespace }}
+  authPath: auth/{{ .Helm.Release.Cluster }}.vault-auth-per-cluster
+  entrypoint: ./promo
+  env:
+    - services/betta/prd/marketing-secrets:
+        MARKETING_TOKEN: marketingToken
+
+service:
+  enabled: true
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: public
+    - port: 8080
+      targetPort: 8081
+      protocol: TCP
+      name: private
+
+resources:
+  requests:
+    memory: "200Mi"
+    cpu: "100m"
+  limits:
+    memory: "400Mi"
+    cpu: "400m"
