@@ -1,5 +1,10 @@
 .idea
 .env
 .trunk/
-// .gitignore
 .vscode
+.DS_Store
+
+/bin/
+node_modules
+/shared/api/bundles/
+/coverage/
